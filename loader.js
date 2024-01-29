@@ -1,7 +1,7 @@
 const path = require('path')
 const { promisify } = require('util')
 const fs = require('fs')
-const SVGO = require('svgo')
+const { optimize, loadConfig } = require('svgo')
 const { getOptions } = require('loader-utils')
 const merge = require('merge-deep')
 const JoyCon = require('joycon').default
@@ -21,15 +21,16 @@ module.exports = async function(source) {
     }
 
     if (svgoConfig !== false) {
-      const svgo = new SVGO(
-        await getSvgoConfig(svgoConfig, path.dirname(this.resourcePath))
-      )
+      const options = await getSvgoConfig(svgoConfig, path.dirname(this.resourcePath))
 
-      source = await svgo
-        .optimize(source, {
+      const result = optimize(source, Object.assign(
+        {
           path: this.resourcePath
-        })
-        .then(res => res.data)
+        },
+        options
+      ));
+
+      source = result.data
     }
 
     const { component } = await toSFC(source)
@@ -41,7 +42,7 @@ module.exports = async function(source) {
 
 async function getSvgoConfig(svgoConfig, cwd) {
   return merge(
-    { plugins: [{ prefixIds: true }, { removeViewBox: false }] },
+    { plugins: ['prefixIds'] },
     svgoConfig,
     await loadSvgoConfig(cwd)
   )
